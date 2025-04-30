@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Memory Vault</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1, h2 {
+      text-align: center;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #218838;
+    }
+    .error {
+      color: red;
+      text-align: center;
+    }
+    .memory {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+    }
+    .memory img, .memory video {
+      max-width: 100%;
+      height: auto;
+      margin-top: 10px;
+    }
+    #auth-section, #dashboard {
+      display: none;
+    }
+    #auth-section.active, #dashboard.active {
+      display: block;
+    }
+    .link {
+      color: blue;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Authentication Section -->
+    <div id="auth-section" class="active">
+      <h1 id="auth-title">Sign Up</h1>
+      <p id="error" class="error"></p>
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Choose a username">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="Choose a password">
+      </div>
+      <button onclick="handleAuth()">Sign Up</button>
+      <p id="toggle-auth">Already have an account? <span class="link" onclick="toggleAuthMode()">Login</span></p>
+    </div>
+
+    <!-- Dashboard Section -->
+    <div id="dashboard">
+      <h1>Welcome, <span id="current-user"></span></h1>
+      <button onclick="logout()">Logout</button>
+      <h2>Add New Memory</h2>
+      <div class="form-group">
+        <label for="title">Title</label>
+        <input type="text" id="title" placeholder="Enter title">
+      </div>
+      <div class="form-group">
+        <label for="description">Description</label>
+        <textarea id="description" placeholder="Enter description" rows="4"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="photo">Photo</label>
+        <input type="file" id="photo" accept="image/*">
+      </div>
+      <div class="form-group">
+        <label for="video">Video</label>
+        <input type="file" id="video" accept="video/*">
+      </div>
+      <button onclick="addMemory()">Add Memory</button>
+      <h2>Your Memories</h2>
+      <div id="memories"></div>
+    </div>
+  </div>
+
+  <script>
+    let isLoginMode = false; // Start with signup mode
+    let currentUser = null;
+
+    // Load current user
+    const storedUser = localStorage.getItem('currentUser');
+    if (storedUser) {
+      currentUser = JSON.parse(storedUser).username;
+      showDashboard();
+    }
+
+    // Toggle between login and signup
+    function toggleAuthMode() {
+      isLoginMode = !isLoginMode;
+      document.getElementById('auth-title').textContent = isLoginMode ? 'Login' : 'Sign Up';
+      document.getElementById('toggle-auth').innerHTML = isLoginMode
+        ? `Don't have an account? <span class="link" onclick="toggleAuthMode()">Sign Up</span>`
+        : `Already have an account? <span class="link" onclick="toggleAuthMode()">Login</span>`;
+      document.getElementById('error').textContent = '';
+      document.getElementById('username').value = '';
+      document.getElementById('password').value = '';
+    }
+
+    // Handle login/signup
+    function handleAuth() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      const error = document.getElementById('error');
+
+      if (!username || !password) {
+        error.textContent = 'Please fill in all fields';
+        return;
+      }
+
+      let users = JSON.parse(localStorage.getItem('users') || '{}');
+
+      if (isLoginMode) {
+        // Login
+        if (users[username] && users[username].password === password) {
+          localStorage.setItem('currentUser', JSON.stringify({ username }));
+          currentUser = username;
+          showDashboard();
+          error.textContent = '';
+        } else {
+          error.textContent = 'Invalid username or password';
+        }
+      } else {
+        // Signup
+        if (users[username]) {
+          error.textContent = 'Username already exists';
+        } else {
+          users[username] = { password };
+          localStorage.setItem('users', JSON.stringify(users));
+          localStorage.setItem('currentUser', JSON.stringify({ username }));
+          currentUser = username;
+          showDashboard();
+          error.textContent = '';
+        }
+      }
+    }
+
+    // Show dashboard
+    function showDashboard() {
+      document.getElementById('auth-section').classList.remove('active');
+      document.getElementById('dashboard').classList.add('active');
+      document.getElementById('current-user').textContent = currentUser;
+      loadMemories();
+    }
+
+    // Add new memory
+    function addMemory() {
+      const title = document.getElementById('title').value;
+      const description = document.getElementById('description').value;
+      const photo = document.getElementById('photo').files[0];
+      const video = document.getElementById('video').files[0];
+
+      if (!title || !description) {
+        alert('Please fill in title and description');
+        return;
+      }
+
+      const memory = {
+        id: Date.now(),
+        title,
+        description,
+        photo: photo ? URL.createObjectURL(photo) : null,
+        video: video ? URL.createObjectURL(video) : null,
+        date: new Date().toLocaleString(),
+      };
+
+      let memories = JSON.parse(localStorage.getItem(`memories_${currentUser}`) || '[]');
+      memories.push(memory);
+      localStorage.setItem(`memories_${currentUser}`, JSON.stringify(memories));
+
+      document.getElementById('title').value = '';
+      document.getElementById('description').value = '';
+      document.getElementById('photo').value = '';
+      document.getElementById('video').value = '';
+
+      loadMemories();
+    }
+
+    // Load memories
+    function loadMemories() {
+      const memoriesDiv = document.getElementById('memories');
+      memoriesDiv.innerHTML = '';
+      const memories = JSON.parse(localStorage.getItem(`memories_${currentUser}`) || '[]');
+
+      memories.forEach(memory => {
+        const memoryDiv = document.createElement('div');
+        memoryDiv.className = 'memory';
+        memoryDiv.innerHTML = `
+          <h3>${memory.title}</h3>
+          <p>${memory.description}</p>
+          ${memory.photo ? `<img src="${memory.photo}" alt="${memory.title}">` : ''}
+          ${memory.video ? `<video src="${memory.video}" controls></video>` : ''}
+          <p><small>${memory.date}</small></p>
+        `;
+        memoriesDiv.appendChild(memoryDiv);
+      });
+    }
+
+    // Logout
+    function logout() {
+      localStorage.removeItem('currentUser');
+      currentUser = null;
+      document.getElementById('dashboard').classList.remove('active');
+      document.getElementById('auth-section').classList.add('active');
+      document.getElementById('username').value = '';
+      document.getElementById('password').value = '';
+      document.getElementById('error').textContent = '';
+      isLoginMode = false;
+      document.getElementById('auth-title').textContent = 'Sign Up';
+      document.getElementById('toggle-auth').innerHTML = `Already have an account? <span class="link" onclick="toggleAuthMode()">Login</span>`;
+    }
+  </script>
+</body>
+</html>
